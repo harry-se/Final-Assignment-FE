@@ -8,8 +8,6 @@ from services import chat_service
 
 # st.set_page_config(page_title="Hệ thống AI Quản lý", layout="centered")
 
-st.spinner("Loading...")
-
 st.markdown("""
 <style>
 div.stButton {
