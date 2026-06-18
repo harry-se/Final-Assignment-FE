@@ -1,0 +1,56 @@
+{
+    "data": [
+        {
+            "type": "status",
+            "answer": "Processing query..."
+        },
+        {
+            "type": "result",
+            "answer": "Here "
+        },
+        {
+            "type": "result",
+            "answer": "is "
+        },
+        {
+            "type": "result",
+            "answer": "the "
+        },
+        {
+            "type": "result",
+            "answer": "summary "
+        },
+        {
+            "type": "result",
+            "answer": "of "
+        },
+        {
+            "type": "result",
+            "answer": "the "
+        },
+        {
+            "type": "result",
+            "answer": "evenue chart for the first 3 months of 2026: Revenue shows steady growth across all months. "
+        },
+        {
+            "type": "chart",
+            "chart_type": "bar",
+            "answer": {
+                "Month": [
+                    "January",
+                    "February",
+                    "March"
+                ],
+                "Revenue": [
+                    12000,
+                    15000,
+                    18000
+                ]
+            }
+        },
+        {
+            "type": "result",
+            "answer": "Summary text..."
+        }
+    ]
+}

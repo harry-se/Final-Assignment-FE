@@ -1,10 +1,142 @@
 import json
 import os
 
-HISTORY_FILE = "chat_history.json"
+from dotenv import load_dotenv
+import requests
 
-def save_session_to_db(session_id, messages):
-    """Lưu phiên chat hiện tại vào database hoặc file"""
+# from pages.Chat import mock_backend_with_chart
+
+MOCK_DATA_FILE = "mock_data.json"
+HISTORY_FILE = "log_history.json"
+
+load_dotenv()
+backend_url = os.getenv("BACKEND_URL","")
+print(f"Loaded BACKEND_URL: {backend_url}")
+
+
+
+def create_conversation():
+    try:
+        response = requests.post(
+            f"{backend_url}/conversations",
+            timeout=20
+        )
+        response.raise_for_status()
+        return response.json()["conversation_id"]
+
+    except requests.exceptions.RequestException as ex:
+        print(f"Create conversation failed: {ex}")
+        return None
+
+def get_all_sessions_from_local_file():
+    """Get all chat sessions from local file"""
+    if not os.path.exists(HISTORY_FILE):
+        return {}
+    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+        try: return json.load(f)
+        except: return {}
+
+def send_prompt(user_message, conversation_id):
+    """
+    Fetch response from backend API with streaming support
+    
+    Args:
+        user_message: The user's input message
+        
+    Yields:
+        JSON strings containing response chunks
+    """
+    try:
+        
+        #  result = requests.post(
+        #     f"{backend_url}/chat",
+        #     json={"message": user_message, "description": conversation_id},
+        #     stream=False
+        # )
+
+        # Send POST request to backend API
+        result = requests.post(
+            f"{backend_url}/chat/stream",
+            json={"message": user_message, "description": conversation_id},
+            stream=True,
+            timeout=120
+        )
+        result.raise_for_status()
+        
+        # Stream the response line by line
+        for line in result.iter_lines():
+            if line:
+                try:
+                    yield line.decode('utf-8') if isinstance(line, bytes) else line
+                except json.JSONDecodeError:
+                    continue
+    except requests.exceptions.RequestException as e:
+        # Fallback: Return error status if backend is unavailable
+        yield json.dumps({"type": "status", "message": f"Error connecting to backend: {str(e)}"})
+        # Return mock data for demonstration if backend fails
+        yield json.dumps({"type": "result", "message": "Backend is currently unavailable. Using demo data: "})
+        # yield from mock_backend_with_chart()
+
+def stream_handler(status, prompt, conversation_id, detected_chart_data):
+    # Use actual backend API response instead of mock data
+    for chunk in send_prompt(prompt, conversation_id):
+        chunk = chunk.strip()
+
+        if not chunk:
+            continue
+
+        if chunk.startswith("data: "):
+            chunk = chunk[6:]
+
+        try:
+            data = json.loads(chunk)
+            print(chunk)
+            print(data)
+        except json.JSONDecodeError:
+            print("INVALID JSON:", repr(chunk))
+            continue
+        
+        if data["type"] == "status":
+            status.update(label=data.get("message", ""))
+        elif data["type"] == "result":
+            # Handle both "answer" and "message" keys
+            answer = data.get("answer") or data.get("message", "")
+            if answer:
+                yield answer
+        elif data["type"] == "chart":
+            detected_chart_data["data"] = data.get("message", data.get("data"))
+            detected_chart_data["chart_type"] = data.get("chart_type", "bar")
+
+
+
+# mock data functions only
+def mock_backend_with_chart():
+    """
+    Mock backend response generator that reads from mock_data.json
+    Replace this with actual backend calls in production
+    """
+    mock_data = load_mock_data()
+    
+    if "data" in mock_data and isinstance(mock_data["data"], list):
+        for item in mock_data["data"]:
+            yield json.dumps(item)
+            # Add small delay to simulate streaming
+            # time.sleep(0.1)
+    else:
+        # Fallback if mock_data.json is not properly formatted
+        yield json.dumps({"type": "status", "message": "No mock data available"})
+        yield json.dumps({"type": "token", "message": "Please configure mock_data.json file"})
+
+def load_mock_data():
+    """Load mock data from JSON file"""
+    if not os.path.exists(MOCK_DATA_FILE):
+        return {}
+    with open(MOCK_DATA_FILE, "r", encoding="utf-8") as f:
+        try: return json.load(f)
+        except: return {}
+
+def save_session_to_local_file(session_id, messages):
+    """Store current chat session into file"""
     data = {}
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
@@ -16,10 +148,3 @@ def save_session_to_db(session_id, messages):
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-def get_all_sessions_from_db():
-    """Lấy toàn bộ danh sách phiên chat cũ"""
-    if not os.path.exists(HISTORY_FILE):
-        return {}
-    with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-        try: return json.load(f)
-        except: return {}

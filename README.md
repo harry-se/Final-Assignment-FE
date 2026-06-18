@@ -7,11 +7,12 @@ The system utilizes **Server-Sent Events (SSE)** or **JSON Lines** streaming mec
 The interaction sequence between the User, Frontend, and Backend is as follows:
 
 1. **User Request:** The user submits a prompt via the Streamlit interface (`st.chat_input`). The Frontend dispatches a POST request containing the query payload to the Backend API.
-2. **Backend Processing:** The Backend captures the request and initiates a multi-step processing pipeline (e.g., Intent Analysis -> SQL Generation -> Database Query -> Response Synthesis).
+2. **Backend Processing:** The Backend captures the request and initiates a multi-step processing pipeline
 3. **Continuous Streaming:** Instead of waiting for the entire pipeline to resolve, the Backend continuously `yields` (pushes) small data chunks formatted as JSON strings back to the Frontend as each step concludes or as final answer tokens are generated.
 4. **Frontend Parsing & Rendering:** Streamlit consumes the continuous stream, parses each JSON chunk, and evaluates the `type` property:
    * If `type == "status"`: Dynamically updates the execution progress inside the status container (`st.status`).
-   * If `type == "token"`: Feeds individual text segments into `st.write_stream` to create a real-time typewriter effect.
+   * If `type == "result"`: Feeds individual text segments into `st.write_stream` to create a real-time typewriter effect.
+   * If `type == "chart"` : Dynamically draws suitable chart base on `chart_type` and data from field `message`
 
 ### 2. JSON Data Structure Specification
 
@@ -21,6 +22,20 @@ The stream response delivered by the Backend consists of independent JSON lines.
 
 ```json
 {
-  "type": "string",
-  "content": "string"
+  "type": "status",
+  "message": string
 }
+```
+```json
+{
+  "type": "result",
+  "message": string
+}
+```
+```json
+{
+  "type": "chart",
+  "chart_type": string,
+  "message": list
+}
+```
