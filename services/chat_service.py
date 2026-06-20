@@ -99,6 +99,38 @@ def stream_handler(status, prompt, conversation_id, detected_chart_data):
         if data["type"] == "status":
             status.update(label=data.get("message", ""))
         elif data["type"] == "result":
+            # Show reasoning steps in status before completing
+            reasoning_steps = data.get("reasoning_steps", [])
+            if reasoning_steps:
+                status.update(label=f"Completed — {len(reasoning_steps)} steps")
+                for step in reasoning_steps:
+                    if "error" in step.lower():
+                        status.markdown(f"❌ `{step}`")
+                    elif "Route intent" in step:
+                        status.markdown(f"🧭 `{step}`")
+                    elif "retrieve_knowledge" in step:
+                        status.markdown(f"📚 `{step}`")
+                    elif "execute_sql" in step:
+                        status.markdown(f"🗄️ `{step}`")
+                    elif "ReAct loop" in step or "llm_calls" in step:
+                        status.markdown(f"🤖 `{step}`")
+                    else:
+                        status.markdown(f"▸ `{step}`")
+
+            # Extract visualization data if present
+            visualization = data.get("visualization")
+            if visualization:
+                # Map BE visualization types to FE chart types
+                viz_type_map = {
+                    "bar_chart": "bar",
+                    "line_chart": "line",
+                    "pie_chart": "bar",  # streamlit doesn't have native pie, use bar
+                    "table": "table",
+                }
+                chart_type = viz_type_map.get(visualization.get("type", ""), "bar")
+                detected_chart_data["data"] = visualization.get("data")
+                detected_chart_data["chart_type"] = chart_type
+
             # Handle both "answer" and "message" keys
             answer = data.get("answer") or data.get("message", "")
             if answer:

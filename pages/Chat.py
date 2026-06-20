@@ -53,7 +53,7 @@ if prompt := st.chat_input("Ask me something..."):
         detected_chart_data = {"data": None, "chart_type": "bar"}
 
         final_response = st.write_stream(chat_service.stream_handler(status, prompt, st.session_state.current_session_id, detected_chart_data))
-        status.update(label="Process completed!", state="complete", expanded=False)
+        status.update(label="Process completed!", state="complete", expanded=True)
         
         if detected_chart_data["data"]:
             chart_renderer.render_dynamic_chart(detected_chart_data["data"], detected_chart_data["chart_type"])

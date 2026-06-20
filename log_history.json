@@ -1,0 +1,249 @@
+{
+    "null": [
+        {
+            "role": "user",
+            "message": "Phan bo abandon theo loai la nhu the nao"
+        },
+        {
+            "role": "assistant",
+            "message": "Backend is currently unavailable. Using demo data: "
+        }
+    ],
+    "26ec299e6da04b88": [
+        {
+            "role": "user",
+            "message": "Phân bổ abandon theo loại là như thế nào?"
+        },
+        {
+            "role": "assistant",
+            "message": "Theo knowledge base (Call Center Knowledge Base), # Call Center Knowledge Base\n\nKnowledge base nay mo ta schema PostgreSQL, quan he bang, KPI va mau SQL cho chatbot\nphan tich tong dai. Noi dung duoc chunk va retrieve truoc khi sinh SQL.\n\n## Cau truc\n\n```\nknowledge/\n├── schema/              # Mo ta cac bang trong database\n│   ├── distribution_call.md\n│   ├── call_log.md\n│   ├── abandoned_call.md\n│   ├── agent.md\n│   ├── request_code.md\n│   └── relationships.md\n├── metrics/             # Cong thuc tinh KPI\n│   ├── abandon_sys.md\n│   ├── abandon_c"
+        },
+        {
+            "role": "user",
+            "message": "Tỉ lệ Abandon_CUS của tháng này là bao nhiêu"
+        },
+        {
+            "role": "assistant",
+            "message": "\n[TextBlock(type='text', text='{\"ok\": true, \"rows\": [{\"abandon_cus\": 0.12878787878787878788}]}', id='755665686764433b8367a68e14ff72c')]\n\nTỉ lệ Abandon_CUS (tỉ lệ khách hàng bị nhỡ cuộc gọi) của tháng này (tháng 5/2026) là khoảng **12.88%**.\n\n**Chi tiết:**\n*   **Công thức:** Sử dụng số lượng khách hàng duy nhất (`DISTINCT calling_number`) có ít nhất một cuộc gọi bị nhỡ chia cho tổng số khách hàng duy nhất đã gọi đến trong tháng.\n*   **SQL đã thực hiện:**\n    ```sql\n    SELECT\n        COUNT(DISTINCT d.calling_number) FILTER (WHERE a.call_id IS NOT NULL)::numeric\n        / NULLIF(COUNT(DISTINCT d.calling_number), 0) AS abandon_cus\n    FROM distribution_call d\n    LEFT JOIN abandoned_call a ON a.call_id = d.call_id\n    WHERE d.call_type = 'Inbound'\n      AND d.call_start >= '2026-05-01' AND d.call_start < '2026-06-01'\n    LIMIT 1;\n    ```\n*   **Định dạng:** Kết quả được hiển thị dưới dạng tỉ lệ phần trăm (0.1288 tương đương 12.88%)."
+        },
+        {
+            "role": "user",
+            "message": "Tỉ lệ Abandon_SYS của tháng này là bao nhiêu"
+        },
+        {
+            "role": "assistant",
+            "message": "\n[TextBlock(type='text', text='{\"ok\": true, \"rows\": [{\"month\": \"2026-05-01T00:00:00.000Z\", \"abandon_sys\": 0.14285714285714285714}]}', id='7655765878744845886')]\n\nTỉ lệ Abandon_SYS (tỉ lệ cuộc gọi nhỡ trên tổng cuộc gọi Inbound) của tháng này (tháng 5/2026) là **14.29%**.\n\nĐể tính toán chỉ số này, tôi đã sử dụng công thức:\n*   **Tử số:** Số lượng cuộc gọi có ghi nhận trong bảng `abandoned_call`.\n*   **Mẫu số:** Tổng số cuộc gọi Inbound trong bảng `distribution_call`.\n\nTruy vấn SQL được sử dụng:\n```sql\nSELECT \n    COUNT(DISTINCT a.call_id)::numeric / NULLIF(COUNT(DISTINCT d.call_id), 0) AS abandon_sys\nFROM distribution_call d\nLEFT JOIN abandoned_call a ON a.call_id = d.call_id\nWHERE d.call_type = 'Inbound' \n  AND d.call_start >= '2026-05-01' AND d.call_start < '2026-06-01'\nLIMIT 1;\n```\n\nKết quả này cho thấy cứ khoảng 100 cuộc gọi Inbound thì có khoảng 14 cuộc gọi bị nhỡ trong tháng này."
+        }
+    ],
+    "3b60aab310304249": [
+        {
+            "role": "user",
+            "message": "So cuoc goi agent xu ly trong khoang thoi gian."
+        },
+        {
+            "role": "assistant",
+            "message": "Để xem số lượng cuộc gọi mà mỗi agent đã xử lý trong một khoảng thời gian cụ thể, bạn có thể sử dụng chỉ số **Agent_Prod (Năng suất xử lý)**.\n\nDưới đây là truy vấn SQL mẫu để lấy dữ liệu này. Bạn vui lòng cung cấp khoảng thời gian cụ thể (ví dụ: từ ngày nào đến ngày nào) để tôi có thể hoàn thiện truy vấn cho bạn:\n\n```sql\nSELECT \n    a.agent_name, \n    a.agent_tl,\n    COUNT(d.call_id) AS total_calls\nFROM distribution_call d\nJOIN agent a ON a.agent_id = d.agent_id\nWHERE d.call_type = 'Inbound'\n  AND d.call_start >= 'YYYY-MM-DD' -- Thay bằng ngày bắt đầu\n  AND d.call_start < 'YYYY-MM-DD'  -- Thay bằng ngày kết thúc\nGROUP BY a.agent_name, a.agent_tl\nORDER BY total_calls DESC\nLIMIT 100;\n```\n\n**Giải thích:**\n*   **Metric:** `Agent_Prod` đếm tổng số cuộc gọi Inbound được gán cho mỗi agent.\n*   **Kết quả:** Trả về bảng danh sách gồm tên agent, tên trưởng nhóm (TL) và số lượng cuộc gọi đã xử lý, sắp xếp theo thứ tự từ cao xuống thấp.\n*   **Định dạng:** Phù hợp để hiển thị dưới dạng bảng (Table) hoặc biểu đồ cột (Bar Chart) để so sánh hiệu suất giữa các agent.\n\nBạn muốn kiểm tra dữ liệu cho khoảng thời gian nào?"
+        }
+    ],
+    "0cc1781924ea4635": [
+        {
+            "role": "user",
+            "message": "So cuoc goi agent xu ly trong khoang thoi gian này"
+        },
+        {
+            "role": "assistant",
+            "message": "Dưới đây là bảng thống kê số lượng cuộc gọi Inbound mà mỗi agent đã xử lý trong tháng này (tháng 5/2026):\n\n| Agent Name | Team Leader | Total Calls |\n| :--- | :--- | :--- |\n| Agent 11 | TL_A | 18 |\n| Agent 22 | TL_A | 18 |\n| Agent 5 | TL_D | 17 |\n| Agent 28 | TL_A | 16 |\n| Agent 7 | TL_B | 16 |\n| ... | ... | ... |\n\n*(Bảng hiển thị top các agent có năng suất xử lý cao nhất)*\n\n**Thông tin chi tiết:**\n*   **Chỉ số:** `Agent_Prod` (Tổng số cuộc gọi Inbound được gán cho agent).\n*   **Truy vấn SQL:**\n```sql\nSELECT \n    a.agent_name, \n    a.agent_tl,\n    COUNT(d.call_id) AS total_calls\nFROM distribution_call d\nJOIN agent a ON a.agent_id = d.agent_id\nWHERE d.call_type = 'Inbound'\n  AND d.call_start >= '2026-05-01' AND d.call_start < '2026-06-01'\nGROUP BY a.agent_name, a.agent_tl\nORDER BY total_calls DESC\nLIMIT 30;\n```\n\nDữ liệu này giúp bạn đánh giá năng suất làm việc của từng nhân viên và sự phân bổ khối lượng công việc giữa các nhóm (Team Leader). Bạn có muốn xem thêm chỉ số AHT (thời gian xử lý trung bình) của các agent này để đánh giá chất lượng xử lý không?"
+        }
+    ],
+    "c6ea1ca4f5094d54": [
+        {
+            "role": "user",
+            "message": "Tỉ lệ SLA20 là bao nhiêu"
+        },
+        {
+            "role": "assistant",
+            "message": "Cau hoi nay nam ngoai pham vi: Call center analytics over operational call data.."
+        },
+        {
+            "role": "user",
+            "message": "Tỉ lệ SLA20 của tháng này là bao nhiêu"
+        },
+        {
+            "role": "assistant",
+            "message": "\nTỉ lệ SLA20 của tháng này là bao nhiêu?"
+        }
+    ],
+    "059badf9de124f2a": [
+        {
+            "role": "user",
+            "message": "Tỉ lệ SLA20 của tháng này là bao nhiêu"
+        },
+        {
+            "role": "assistant",
+            "message": "Executed maximum iterations of reasoning-acting loopwithout finishing the task."
+        }
+    ],
+    "b7dd936f000d447d": [
+        {
+            "role": "user",
+            "message": "Thống kê Số lượng cuộc gọi agent xử lý trong thời gian này "
+        },
+        {
+            "role": "assistant",
+            "message": "\n\nDưới đây là thống kê số lượng cuộc gọi Inbound mà mỗi agent đã xử lý (chỉ số **Agent_Prod**). Dữ liệu được tổng hợp từ bảng `distribution_call` và `agent`.\n\n| Tên Agent | Team Leader | Tổng số cuộc gọi |\n| :--- | :--- | :--- |\n| Agent 11 | TL_A | 18 |\n| Agent 22 | TL_A | 18 |\n| Agent 5 | TL_D | 17 |\n| Agent 28 | TL_A | 16 |\n| Agent 7 | TL_B | 16 |\n| ... | ... | ... |\n\n*(Bảng hiển thị top các agent có năng suất xử lý cao nhất. Bạn có muốn xem chi tiết theo một khoảng thời gian cụ thể hoặc theo từng Team Leader không?)*",
+            "chart_data": [
+                {
+                    "agent_name": "Agent 11",
+                    "agent_tl": "TL_A",
+                    "total_calls": 18
+                },
+                {
+                    "agent_name": "Agent 22",
+                    "agent_tl": "TL_A",
+                    "total_calls": 18
+                },
+                {
+                    "agent_name": "Agent 5",
+                    "agent_tl": "TL_D",
+                    "total_calls": 17
+                },
+                {
+                    "agent_name": "Agent 28",
+                    "agent_tl": "TL_A",
+                    "total_calls": 16
+                },
+                {
+                    "agent_name": "Agent 7",
+                    "agent_tl": "TL_B",
+                    "total_calls": 16
+                },
+                {
+                    "agent_name": "Agent 29",
+                    "agent_tl": "TL_A",
+                    "total_calls": 15
+                },
+                {
+                    "agent_name": "Agent 10",
+                    "agent_tl": "TL_D",
+                    "total_calls": 15
+                },
+                {
+                    "agent_name": "Agent 25",
+                    "agent_tl": "TL_D",
+                    "total_calls": 15
+                },
+                {
+                    "agent_name": "Agent 30",
+                    "agent_tl": "TL_B",
+                    "total_calls": 15
+                },
+                {
+                    "agent_name": "Agent 1",
+                    "agent_tl": "TL_C",
+                    "total_calls": 15
+                },
+                {
+                    "agent_name": "Agent 23",
+                    "agent_tl": "TL_D",
+                    "total_calls": 14
+                },
+                {
+                    "agent_name": "Agent 9",
+                    "agent_tl": "TL_B",
+                    "total_calls": 14
+                },
+                {
+                    "agent_name": "Agent 4",
+                    "agent_tl": "TL_B",
+                    "total_calls": 14
+                },
+                {
+                    "agent_name": "Agent 27",
+                    "agent_tl": "TL_A",
+                    "total_calls": 14
+                },
+                {
+                    "agent_name": "Agent 17",
+                    "agent_tl": "TL_C",
+                    "total_calls": 14
+                },
+                {
+                    "agent_name": "Agent 8",
+                    "agent_tl": "TL_D",
+                    "total_calls": 13
+                },
+                {
+                    "agent_name": "Agent 24",
+                    "agent_tl": "TL_D",
+                    "total_calls": 13
+                },
+                {
+                    "agent_name": "Agent 15",
+                    "agent_tl": "TL_D",
+                    "total_calls": 13
+                },
+                {
+                    "agent_name": "Agent 18",
+                    "agent_tl": "TL_B",
+                    "total_calls": 13
+                },
+                {
+                    "agent_name": "Agent 20",
+                    "agent_tl": "TL_B",
+                    "total_calls": 13
+                },
+                {
+                    "agent_name": "Agent 19",
+                    "agent_tl": "TL_D",
+                    "total_calls": 12
+                },
+                {
+                    "agent_name": "Agent 12",
+                    "agent_tl": "TL_C",
+                    "total_calls": 12
+                },
+                {
+                    "agent_name": "Agent 6",
+                    "agent_tl": "TL_A",
+                    "total_calls": 12
+                },
+                {
+                    "agent_name": "Agent 14",
+                    "agent_tl": "TL_A",
+                    "total_calls": 12
+                },
+                {
+                    "agent_name": "Agent 21",
+                    "agent_tl": "TL_C",
+                    "total_calls": 12
+                },
+                {
+                    "agent_name": "Agent 26",
+                    "agent_tl": "TL_C",
+                    "total_calls": 10
+                },
+                {
+                    "agent_name": "Agent 2",
+                    "agent_tl": "TL_B",
+                    "total_calls": 10
+                },
+                {
+                    "agent_name": "Agent 3",
+                    "agent_tl": "TL_A",
+                    "total_calls": 9
+                },
+                {
+                    "agent_name": "Agent 13",
+                    "agent_tl": "TL_C",
+                    "total_calls": 7
+                },
+                {
+                    "agent_name": "Agent 16",
+                    "agent_tl": "TL_B",
+                    "total_calls": 5
+                }
+            ],
+            "chart_type": "bar"
+        }
+    ]
+}
