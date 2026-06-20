@@ -20,9 +20,9 @@ div.stButton {
 """, unsafe_allow_html=True)
 
 if st.button("➕ New Chat"):
-        st.session_state.current_session_id = chat_service.create_conversation()
-        st.session_state.messages = []
-        st.rerun()
+    st.session_state.current_session_id = chat_service.create_conversation()
+    st.session_state.messages = []
+    st.rerun()
 
 st.title("Call Center Analytics Agent", text_alignment="center")
 
@@ -52,7 +52,16 @@ if prompt := st.chat_input("Ask me something..."):
         
         detected_chart_data = {"data": None, "chart_type": "bar"}
 
-        final_response = st.write_stream(chat_service.stream_handler(status, prompt, st.session_state.current_session_id, detected_chart_data))
+        final_response = st.write_stream(
+            chat_service.stream_handler(
+                status,
+                prompt,
+                st.session_state.current_session_id,
+                detected_chart_data,
+            )
+        )
+        if detected_chart_data.get("conversation_id"):
+            st.session_state.current_session_id = detected_chart_data["conversation_id"]
         status.update(label="Process completed!", state="complete", expanded=True)
         
         if detected_chart_data["data"]:

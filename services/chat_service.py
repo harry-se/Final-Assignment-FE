@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from dotenv import load_dotenv
 import requests
@@ -13,6 +14,26 @@ load_dotenv()
 backend_url = os.getenv("BACKEND_URL","")
 print(f"Loaded BACKEND_URL: {backend_url}")
 
+
+TEXT_BLOCK_REPR_PATTERN = re.compile(
+    r"^\[?TextBlock\(type='text', text='(?P<text>.*)', id='[^']+'\)\]?$",
+    re.DOTALL,
+)
+
+
+def clean_answer_text(answer):
+    if not isinstance(answer, str):
+        return answer
+    match = TEXT_BLOCK_REPR_PATTERN.match(answer.strip())
+    if match:
+        answer = match.group("text")
+    return (
+        answer.replace("\\r\\n", "\n")
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .replace("\\'", "'")
+        .replace('\\"', '"')
+    )
 
 
 def create_conversation():
@@ -54,10 +75,14 @@ def send_prompt(user_message, conversation_id):
         #     stream=False
         # )
 
+        payload = {"message": user_message}
+        if conversation_id:
+            payload["conversation_id"] = conversation_id
+
         # Send POST request to backend API
         result = requests.post(
             f"{backend_url}/chat/stream",
-            json={"message": user_message, "description": conversation_id},
+            json=payload,
             stream=True,
             timeout=120
         )
@@ -79,6 +104,10 @@ def send_prompt(user_message, conversation_id):
 
 def stream_handler(status, prompt, conversation_id, detected_chart_data):
     # Use actual backend API response instead of mock data
+    rendered_steps = set()
+    rendered_answers = set()
+    last_status_message = None
+
     for chunk in send_prompt(prompt, conversation_id):
         chunk = chunk.strip()
 
@@ -96,14 +125,34 @@ def stream_handler(status, prompt, conversation_id, detected_chart_data):
             print("INVALID JSON:", repr(chunk))
             continue
         
-        if data["type"] == "status":
-            status.update(label=data.get("message", ""))
-        elif data["type"] == "result":
+        event_type = data.get("type")
+        if data.get("conversation_id"):
+            detected_chart_data["conversation_id"] = data["conversation_id"]
+
+        if event_type == "metadata":
+            continue
+        if event_type == "status":
+            status_message = data.get("message", "")
+            if status_message and status_message != last_status_message:
+                status.update(label=status_message)
+                last_status_message = status_message
+        elif event_type == "result":
             # Show reasoning steps in status before completing
             reasoning_steps = data.get("reasoning_steps", [])
             if reasoning_steps:
-                status.update(label=f"Completed — {len(reasoning_steps)} steps")
+                unique_steps = []
                 for step in reasoning_steps:
+                    if step not in rendered_steps and step not in unique_steps:
+                        unique_steps.append(step)
+                if unique_steps:
+                    status.update(
+                        label=f"Completed — {len(rendered_steps) + len(unique_steps)} steps"
+                    )
+                for step in reasoning_steps:
+                    if step in rendered_steps:
+                        continue
+                    rendered_steps.add(step)
+
                     if "error" in step.lower():
                         status.markdown(f"❌ `{step}`")
                     elif "Route intent" in step:
@@ -132,10 +181,11 @@ def stream_handler(status, prompt, conversation_id, detected_chart_data):
                 detected_chart_data["chart_type"] = chart_type
 
             # Handle both "answer" and "message" keys
-            answer = data.get("answer") or data.get("message", "")
-            if answer:
+            answer = clean_answer_text(data.get("answer") or data.get("message", ""))
+            if answer and answer not in rendered_answers:
+                rendered_answers.add(answer)
                 yield answer
-        elif data["type"] == "chart":
+        elif event_type == "chart":
             detected_chart_data["data"] = data.get("message", data.get("data"))
             detected_chart_data["chart_type"] = data.get("chart_type", "bar")
 
@@ -179,4 +229,3 @@ def save_session_to_local_file(session_id, messages):
     
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-
