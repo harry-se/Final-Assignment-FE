@@ -5,6 +5,7 @@ import json
 
 from components import chart_renderer
 from services import chat_service
+from services.history_service import get_conversation_by_id
 
 # st.set_page_config(page_title="Hệ thống AI Quản lý", layout="centered")
 
@@ -20,11 +21,37 @@ div.stButton {
 """, unsafe_allow_html=True)
 
 if st.button("➕ New Chat"):
+    st.session_state.pop("resume_conversation_id", None)
+    st.session_state.pop("loaded_session_id", None)
     st.session_state.current_session_id = chat_service.create_conversation()
     st.session_state.messages = []
     st.rerun()
 
 st.title("Call Center Analytics Agent", text_alignment="center")
+
+def load_conversation_into_chat(conversation_id):
+    conversation_data = get_conversation_by_id(conversation_id)
+    if conversation_data is None:
+        st.error("Failed to load conversation messages")
+        return
+
+    st.session_state.current_session_id = conversation_id
+    st.session_state.loaded_session_id = conversation_id
+    st.session_state.messages = [
+        {
+            "role": msg["role"],
+            "message": msg["content"],
+        }
+        for msg in conversation_data.get("messages", [])
+    ]
+
+
+resume_conversation_id = st.session_state.get("resume_conversation_id")
+if (
+    resume_conversation_id
+    and st.session_state.get("loaded_session_id") != resume_conversation_id
+):
+    load_conversation_into_chat(resume_conversation_id)
 
 if "current_session_id" not in st.session_state:
     st.session_state.current_session_id = chat_service.create_conversation()
